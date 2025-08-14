@@ -1,0 +1,5 @@
+# configを無視
+config.py
+
+# Pythonのキャッシュファイルを無視
+__pycache__/
