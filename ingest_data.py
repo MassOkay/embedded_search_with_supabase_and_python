@@ -5,7 +5,7 @@ import numpy as np
 import os
 import psycopg
 from psycopg.rows import dict_row
-from psycopg.types.vector import register_vector
+from pgvector.psycopg import register_vector
 from sentence_transformers import SentenceTransformer
 from tqdm import tqdm
 

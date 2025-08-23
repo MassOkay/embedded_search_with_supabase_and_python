@@ -4,7 +4,7 @@ import os
 import numpy as np
 import psycopg
 from psycopg.rows import dict_row
-from psycopg.types.vector import register_vector
+from pgvector.psycopg import register_vector
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 from contextlib import contextmanager

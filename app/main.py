@@ -14,22 +14,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS (Cross-Origin Resource Sharing) の設定
-# フロントエンドからのアクセスを許可するために必要
-origins = [
-    "http://localhost",
-    "http://localhost:3000", # React/Vueなどの開発環境
-    # "https://your-frontend-domain.com", # 本番環境のドメイン
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # アプリケーションの生存期間中、VectorSearchServiceのインスタンスを一つだけ作成する
 # これにより、重いモデルやインデックスの読み込みが起動時に一度だけ行われる
 search_service = VectorSearchService(settings)
