@@ -8,6 +8,7 @@ from pgvector.psycopg import register_vector
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 from contextlib import contextmanager
+from psycopg_pool import ConnectionPool
 
 from .config import Settings
 
@@ -16,9 +17,10 @@ class VectorSearchService:
         self.settings = settings
         self.model = SentenceTransformer(self.settings.MODEL_NAME)
         self.documents = self._load_source_documents()
-        self.conn_pool = psycopg.ConnectionPool(settings.get_db_connection_string())
-        # プール内の全接続でNumpy配列を扱えるようにする
-        register_vector(self.conn_pool)
+        self.conn_pool = ConnectionPool(...)
+        # Get a connection from the pool to register the type
+        with self.conn_pool.connection() as conn:
+            register_vector(conn) # <-- Correct
 
     @contextmanager
     def get_connection(self):
