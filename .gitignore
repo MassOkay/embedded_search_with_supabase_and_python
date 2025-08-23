@@ -3,3 +3,6 @@ config.py
 
 # Pythonのキャッシュファイルを無視
 __pycache__/
+
+venv/
+.env
