@@ -35,15 +35,6 @@ class VectorSearchService:
             logging.error(f"An unexpected error occurred during database initialization: {e}")
             raise
 
-    @contextmanager
-    def get_connection(self):
-        """コネクションプールから接続を取得し、自動で返却する"""
-        conn = self.conn_pool.getconn()
-        try:
-            yield conn
-        finally:
-            self.conn_pool.putconn(conn)
-
     def _load_source_documents(self) -> List[Dict[str, Any]]:
         if not os.path.exists(self.settings.SOURCE_JSON_PATH):
             raise FileNotFoundError(f"Source JSON file not found at {self.settings.SOURCE_JSON_PATH}")
@@ -54,7 +45,7 @@ class VectorSearchService:
         """クエリに基づいてSupabaseでセマンティック検索を実行する"""
         query_vector = self.model.encode(query)
 
-        with self.get_connection() as conn:
+        with self.conn_pool.connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
                 # <=> はコサイン距離(1-類似度)を計算する演算子。小さいほど類似
                 cur.execute(

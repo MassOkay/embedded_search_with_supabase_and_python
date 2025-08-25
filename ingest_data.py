@@ -51,38 +51,47 @@ def main():
 
     # --- 4. Supabaseへの接続とテーブル作成 ---
     print("Connecting to Supabase database...")
-    with psycopg.connect(settings.get_db_connection_string()) as conn:
-        with conn.cursor() as cur:
-            # pgvector拡張機能はSupabase UIで有効化済みと想定
-            # print("Ensuring vector extension is enabled...")
-            # cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            
-            print("Creating table 'documents'...")
-            cur.execute("DROP TABLE IF EXISTS documents;")
-            cur.execute(f"""
-                CREATE TABLE documents (
-                    id SERIAL PRIMARY KEY,
-                    content TEXT,
-                    original_doc_id INTEGER,
-                    embedding VECTOR({settings.DIMENSION})
-                );
-            """)
-            
-            # --- 5. データのバッチ登録 ---
-            print(f"Inserting {len(chunks_to_embed)} records into database...")
+    try:
+        # 接続タイムアウトを10秒に設定
+        with psycopg.connect(settings.DATABASE_URL, connect_timeout=10) as conn:
             # psycopgでNumpy配列をvector型として扱えるように登録
             register_vector(conn)
-            
-            with cur.copy("COPY documents (content, original_doc_id, embedding) FROM STDIN") as copy:
-                for i, chunk in enumerate(tqdm(chunks_to_embed)):
-                    copy.write_row((chunk['content'], chunk['original_doc_id'], embeddings[i]))
+            with conn.cursor() as cur:
+                # pgvector拡張機能はSupabase UIで有効化済みと想定
+                print("Ensuring vector extension is enabled...")
+                cur.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                
+                print("Creating table 'documents'...")
+                cur.execute("DROP TABLE IF EXISTS documents;")
+                cur.execute(f"""
+                    CREATE TABLE documents (
+                        id SERIAL PRIMARY KEY,
+                        content TEXT,
+                        original_doc_id INTEGER,
+                        embedding VECTOR({settings.DIMENSION})
+                    );
+                """)
+                
+                # --- 5. データのバッチ登録 ---
+                print(f"Inserting {len(chunks_to_embed)} records into database...")
+                
+                with cur.copy("COPY documents (content, original_doc_id, embedding) FROM STDIN") as copy:
+                    for i, chunk in enumerate(tqdm(chunks_to_embed)):
+                        copy.write_row((chunk['content'], chunk['original_doc_id'], embeddings[i]))
 
-            # --- 6. インデックスの作成 (検索高速化のため) ---
-            print("Creating index on embeddings...")
-            # IVFFlatインデックスを作成。リスト数はデータの1/1000かsqrt(N)が良いとされる
-            num_lists = max(1, int(len(chunks_to_embed) / 100))
-            cur.execute(f"CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = {num_lists});")
-            
+                # --- 6. インデックスの作成 (検索高速化のため) ---
+                print("Creating index on embeddings...")
+                # IVFFlatインデックスを作成。リスト数はデータの1/1000かsqrt(N)が良いとされる
+                num_lists = max(1, int(len(chunks_to_embed) / 100))
+                cur.execute(f"CREATE INDEX ON documents USING ivfflat (embedding vector_cosine_ops) WITH (lists = {num_lists});")
+    except psycopg.OperationalError as e:
+        print(f"データベース接続に失敗しました: {e}")
+        print("\n以下の点を確認してください:")
+        print("1. Supabaseのプロジェクトが有効（一時停止されていない）か、ダッシュボードで確認してください。")
+        print("2. `DATABASE_URL` は正しいですか？特にホスト名とポート番号（Supabaseでは通常6543のConnection Pooler用を推奨）を確認してください。")
+        print("3. ファイアウォールがPCからデータベースへの接続をブロックしていませんか？")
+        return # 接続失敗時はスクリプトを終了
+
     print("Data ingestion completed successfully.")
     # 可視化のロジックは省略（必要であればingest_data.pyの前バージョンから追加可能）
 
