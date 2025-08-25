@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Any
 from contextlib import contextmanager
 from psycopg_pool import ConnectionPool
+import logging
 
 from .config import Settings
 
@@ -17,10 +18,22 @@ class VectorSearchService:
         self.settings = settings
         self.model = SentenceTransformer(self.settings.MODEL_NAME)
         self.documents = self._load_source_documents()
-        self.conn_pool = ConnectionPool(...)
-        # Get a connection from the pool to register the type
-        with self.conn_pool.connection() as conn:
-            register_vector(conn) # <-- Correct
+
+        try:
+            logging.info("Connecting to the database...")
+            # settings.DATABASE_URLは ".env" ファイルから読み込まれます。
+            # このURLはSupabaseのプロジェクト設定 > データベース > 接続文字列 から取得できます。
+            self.conn_pool = ConnectionPool(conninfo=settings.DATABASE_URL, min_size=1, max_size=10)
+            # 接続をテストし、vector型を登録します
+            with self.conn_pool.connection() as conn:
+                register_vector(conn)
+            logging.info("Database connection successful and vector type registered.")
+        except psycopg.OperationalError as e:
+            logging.error(f"Could not connect to the database: {e}")
+            raise
+        except Exception as e:
+            logging.error(f"An unexpected error occurred during database initialization: {e}")
+            raise
 
     @contextmanager
     def get_connection(self):
